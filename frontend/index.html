@@ -1,0 +1,280 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>מערכת ניהול דיווחי נזק</title>
+  <style>
+    :root {
+      --navy: #002244; --blue: #005a9c; --bg: #eef2f7; --surface: #fff;
+      --border: #cfd8e3; --muted: #5a6a7a; --green: #1a7a3c; --green-bg: #e6f4ec;
+      --red: #b91c1c; --red-bg: #fde8e8; --amber-bg: #fef3c7; --amber: #92400e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: "Segoe UI", Arial, sans-serif; background: var(--bg); color: #1f2937; line-height: 1.6; }
+    header { background: var(--navy); color: #fff; padding: 16px 28px; }
+    header h1 { font-size: 20px; font-weight: 600; }
+    header p { font-size: 13px; opacity: .8; }
+    main { max-width: 1080px; margin: 24px auto; padding: 0 16px; }
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+    h2 { font-size: 17px; color: var(--navy); margin-bottom: 14px; }
+    button { font: inherit; cursor: pointer; border: 0; border-radius: 6px; padding: 8px 16px; background: var(--blue); color: #fff; }
+    button.secondary { background: #e2e8f0; color: var(--navy); }
+    button:disabled { opacity: .5; cursor: not-allowed; }
+    a.link-btn { display: inline-block; text-decoration: none; }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th, td { text-align: right; padding: 9px 10px; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 12px; text-transform: uppercase; }
+    tr:hover td { background: #f8fafc; }
+    .yes { color: var(--green); font-weight: 600; }
+    .no { color: var(--muted); }
+    .badge { display: inline-block; padding: 2px 10px; border-radius: 999px; font-size: 12px; background: #f1f3f6; color: #374151; }
+    .toolbar { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; margin-bottom: 14px; }
+    .toolbar label { font-size: 13px; color: var(--muted); display: flex; gap: 6px; align-items: center; }
+    form .row { margin-bottom: 12px; display: flex; flex-direction: column; gap: 4px; }
+    form label { font-size: 13px; color: var(--muted); }
+    input[type=text], input[type=number], textarea, select {
+      font: inherit; padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; width: 100%;
+    }
+    textarea { min-height: 72px; resize: vertical; }
+    .checks { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; margin: 8px 0; }
+    .checks label { display: flex; gap: 8px; align-items: center; font-size: 14px; color: #1f2937; }
+    .notice { padding: 12px 14px; border-radius: 8px; font-size: 14px; margin: 10px 0; }
+    .notice.ok { background: var(--green-bg); color: var(--green); }
+    .notice.warn { background: var(--amber-bg); color: var(--amber); }
+    .notice.err { background: var(--red-bg); color: var(--red); }
+    .kv { display: grid; grid-template-columns: 160px 1fr; gap: 6px 12px; font-size: 14px; margin-bottom: 12px; }
+    .kv dt { color: var(--muted); }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 12px; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>מערכת ניהול דיווחי נזק</h1>
+    <p>משרד הבינוי והשיכון — ניהול תהליך השיקום הלאומי</p>
+  </header>
+  <main>
+    <!-- ========== LIST ========== -->
+    <section id="view-list" class="card">
+      <div class="toolbar">
+        <h2 style="margin:0;flex:1">רשימת דיווחים</h2>
+        <button id="btn-new">+ דיווח חדש</button>
+      </div>
+      <div class="toolbar">
+        <label><input type="checkbox" id="f-workqueue" /> רק מבנים בתור לעבודה</label>
+        <label><input type="checkbox" id="f-budget" /> רק מבנים מוכנים לפתיחת תקציב</label>
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>שם המדווח</th><th>כתובת</th><th>סוג נזק</th><th>סטטוס</th>
+            <th>ממתין בתור לעבודה</th><th>מוכן לפתיחת תקציב</th><th></th>
+          </tr>
+        </thead>
+        <tbody id="list-body"></tbody>
+      </table>
+    </section>
+
+    <!-- ========== CREATE ========== -->
+    <section id="view-create" class="card hidden">
+      <h2>יצירת דיווח חדש</h2>
+      <form id="create-form">
+        <div class="row"><label>שם המדווח</label><input type="text" name="reporterName" required /></div>
+        <div class="row"><label>כתובת</label><input type="text" name="address" required /></div>
+        <div class="row"><label>סוג הנזק</label><input type="text" name="damageType" required /></div>
+        <div class="row"><label>תיאור הנזק</label><textarea name="description" required></textarea></div>
+        <div class="row"><label>מספר דירות במבנה</label><input type="number" name="apartmentCount" min="0" value="0" /></div>
+        <div class="checks">
+          <label><input type="checkbox" name="hasDamageImages" /> קיימות תמונות נזק</label>
+          <label><input type="checkbox" name="hasEngineerReport" /> קיים דו"ח מהנדס</label>
+          <label><input type="checkbox" name="eligibilityChecked" /> בוצעה בדיקת זכאות</label>
+          <label><input type="checkbox" name="socialApproval" /> קיים אישור חברתי</label>
+        </div>
+        <div class="actions">
+          <button type="submit">צור דיווח</button>
+          <button type="button" class="secondary" data-back>ביטול</button>
+        </div>
+      </form>
+    </section>
+
+    <!-- ========== DETAILS ========== -->
+    <section id="view-details" class="card hidden">
+      <div class="toolbar">
+        <h2 style="margin:0;flex:1">פרטי דיווח</h2>
+        <button class="secondary" data-back>חזרה לרשימה</button>
+      </div>
+      <div id="details-body"></div>
+    </section>
+  </main>
+
+<script>
+const $ = (s, r = document) => r.querySelector(s);
+const api = (p, opt) => fetch(p, opt).then(async r => {
+  const body = await r.json().catch(() => ({}));
+  if (!r.ok) throw body.detail || body;
+  return body;
+});
+const YN = v => v ? '<span class="yes">כן</span>' : '<span class="no">לא</span>';
+
+function show(view) {
+  ['list', 'create', 'details'].forEach(v => $('#view-' + v).classList.toggle('hidden', v !== view));
+}
+document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => { show('list'); loadList(); });
+$('#btn-new').onclick = () => { $('#create-form').reset(); show('create'); };
+$('#f-workqueue').onchange = loadList;
+$('#f-budget').onchange = loadList;
+
+// ---------- LIST ----------
+async function loadList() {
+  const params = new URLSearchParams();
+  if ($('#f-workqueue').checked) params.set('workQueue', 'true');
+  if ($('#f-budget').checked) params.set('budgetReady', 'true');
+  const rows = await api('/reports?' + params.toString());
+  $('#list-body').innerHTML = rows.map(r => `
+    <tr>
+      <td>${esc(r.reporterName)}</td>
+      <td>${esc(r.address)}</td>
+      <td>${esc(r.damageType)}</td>
+      <td><span class="badge">${esc(r.statusLabel)}</span></td>
+      <td>${YN(r.inWorkQueue)}</td>
+      <td>${YN(r.readyForBudget)}</td>
+      <td><button class="secondary" onclick="openDetails('${r.id}')">פרטים</button></td>
+    </tr>`).join('') || '<tr><td colspan="7" style="color:var(--muted)">אין דיווחים להצגה</td></tr>';
+}
+
+// ---------- CREATE ----------
+$('#create-form').onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target;
+  const payload = {
+    reporterName: f.reporterName.value, address: f.address.value,
+    damageType: f.damageType.value, description: f.description.value,
+    apartmentCount: Number(f.apartmentCount.value || 0),
+    hasDamageImages: f.hasDamageImages.checked, hasEngineerReport: f.hasEngineerReport.checked,
+    eligibilityChecked: f.eligibilityChecked.checked, socialApproval: f.socialApproval.checked,
+  };
+  const created = await api('/reports', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload),
+  });
+  openDetails(created.id);
+}
+
+// ---------- DETAILS ----------
+window.openDetails = async function (id) {
+  const r = await api('/reports/' + id);
+  show('details');
+  render(r);
+}
+
+function render(r) {
+  const rehab = r.rehabilitation;
+  const be = r.budgetEligibility;
+  const oe = r.occupationEligibility;
+  const statusOpts = [
+    ['WAITING_FOR_VALIDATION', 'ממתין לאימות'], ['NEW', 'חדש'], ['IN_REVIEW', 'בבדיקה'],
+    ['BUILDING_IN_RESTORATION', 'מבנה בתהליך שיקום'], ['RESTORATION_COMPLETED', 'תהליך שיקום הסתיים'],
+  ];
+
+  $('#details-body').innerHTML = `
+    <dl class="kv">
+      <dt>מזהה</dt><dd>${esc(r.id)}</dd>
+      <dt>שם המדווח</dt><dd>${esc(r.reporterName)}</dd>
+      <dt>כתובת</dt><dd>${esc(r.address)}</dd>
+      <dt>סוג נזק</dt><dd>${esc(r.damageType)}</dd>
+      <dt>תיאור</dt><dd>${esc(r.description)}</dd>
+    </dl>
+
+    <div class="row" style="max-width:320px">
+      <label>סטטוס</label>
+      <select id="d-status">${statusOpts.map(([v, l]) =>
+        `<option value="${v}" ${v === r.status ? 'selected' : ''}>${l}</option>`).join('')}</select>
+    </div>
+
+    <h2 style="margin-top:18px">נתוני המבנה</h2>
+    <div class="checks">
+      <label><input type="checkbox" id="d-photos" ${r.hasDamageImages ? 'checked' : ''}/> קיימות תמונות נזק</label>
+      <label><input type="checkbox" id="d-engineer" ${r.hasEngineerReport ? 'checked' : ''}/> קיים דו"ח מהנדס</label>
+      <label><input type="checkbox" id="d-eligibility" ${r.eligibilityChecked ? 'checked' : ''}/> בוצעה בדיקת זכאות</label>
+      <label><input type="checkbox" id="d-social" ${r.socialApproval ? 'checked' : ''}/> קיים אישור חברתי</label>
+    </div>
+    <div class="row" style="max-width:220px">
+      <label>מספר דירות במבנה</label>
+      <input type="number" id="d-apartments" min="0" value="${r.apartmentCount}" />
+    </div>
+    <button id="d-save-details" class="secondary">שמירת נתוני המבנה</button>
+
+    <h2 style="margin-top:20px">תהליך שיקום</h2>
+    <div class="notice ${rehab.canStart ? 'ok' : 'warn'}">
+      ${rehab.canStart ? 'ניתן להתחיל שיקום' : 'חסר מידע להתחלת שיקום: ' + rehab.missing.join(', ')}
+    </div>
+
+    <h2 style="margin-top:20px">בקשת תקציב</h2>
+    ${r.budgetRequested
+      ? '<div class="notice ok">בקשת תקציב נפתחה עבור מבנה זה</div>'
+      : (be.eligible
+        ? '<button id="d-budget">פתח בקשת תקציב</button>'
+        : `<button disabled>פתח בקשת תקציב</button><div class="notice warn">${esc(be.reason)}</div>`)}
+
+    <h2 style="margin-top:20px">תיק אכלוס מחדש</h2>
+    ${oe.eligible
+      ? `<button id="d-package">הפק תיק אכלוס מחדש</button>`
+      : `<div class="notice warn">לא ניתן להפיק תיק אכלוס מחדש. חסר: ${oe.missing.join(', ')}</div>`}
+    ${r.occupationFileUrl
+      ? `<div class="notice ok">תיק קיים:
+           <a class="link-btn" href="${r.occupationFileUrl}" target="_blank">צפייה</a> ·
+           <a class="link-btn" href="${r.occupationFileUrl}" download>הורדה</a></div>`
+      : ''}
+    <div id="d-package-result"></div>
+  `;
+
+  $('#d-status').onchange = async e => {
+    render(await api('/reports/' + r.id + '/status', jsonPost({ status: e.target.value }, 'PATCH')));
+  };
+  $('#d-save-details').onclick = async () => {
+    const updated = await api('/reports/' + r.id + '/details', jsonPost({
+      hasDamageImages: $('#d-photos').checked, hasEngineerReport: $('#d-engineer').checked,
+      eligibilityChecked: $('#d-eligibility').checked, socialApproval: $('#d-social').checked,
+      apartmentCount: Number($('#d-apartments').value || 0),
+    }, 'PATCH'));
+    render(updated);
+  };
+  const bBtn = $('#d-budget');
+  if (bBtn) bBtn.onclick = async () => {
+    try {
+      const res = await api('/reports/' + r.id + '/budget-request', jsonPost({}, 'POST'));
+      render(res.report);
+    } catch (err) { alert(fmtErr(err)); }
+  };
+  const pBtn = $('#d-package');
+  if (pBtn) pBtn.onclick = async () => {
+    pBtn.disabled = true; pBtn.textContent = 'מפיק מסמך…';
+    try {
+      const res = await api('/buildings/' + r.id + '/return-home-package', jsonPost({}, 'POST'));
+      $('#d-package-result').innerHTML =
+        `<div class="notice ok">התיק הופק:
+          <a class="link-btn" href="${res.fileUrl}" target="_blank">צפייה במסמך</a> ·
+          <a class="link-btn" href="${res.fileUrl}" download>הורדה</a></div>`;
+      openDetails(r.id);
+    } catch (err) {
+      $('#d-package-result').innerHTML = `<div class="notice err">${fmtErr(err)}</div>`;
+      pBtn.disabled = false; pBtn.textContent = 'הפק תיק אכלוס מחדש';
+    }
+  };
+}
+
+// ---------- helpers ----------
+function jsonPost(body, method) {
+  return { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) };
+}
+function esc(s) { return String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c])); }
+function fmtErr(e) {
+  if (typeof e === 'string') return e;
+  if (e && e.error) return e.error + (e.missing ? ': ' + e.missing.join(', ') : '');
+  return 'אירעה שגיאה';
+}
+
+loadList();
+</script>
+</body>
+</html>
